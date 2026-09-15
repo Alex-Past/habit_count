@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Счетчик привычек</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+            opacity: 0.9;
+        }
+
+        /* ── Сетка карточек ── */
+        .habits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* ── Карточка привычки ── */
+        .habit-card {
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            animation: fadeIn 0.35s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .habit-card .delete-btn {
+            position: absolute;
+            top: 12px; right: 12px;
+            background: rgba(0,0,0,0.25);
+            border: none;
+            color: #fff;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .habit-card .delete-btn:hover { opacity: 1; }
+
+        .habit-card .name {
+            font-size: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .habit-card .start-date {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 16px;
+        }
+
+        .time-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .time-cell {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px 6px;
+            flex: 1;
+            text-align: center;
+        }
+
+        .time-cell .num {
+            font-size: 22px;
+            font-weight: 700;
+            display: block;
+        }
+
+        .time-cell .lbl {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        /* ── Кнопка добавления ── */
+        .add-btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border: 2px dashed rgba(255,255,255,0.25);
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+            border-radius: 16px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .add-btn:hover {
+            border-color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.04);
+        }
+        .add-btn.hidden { display: none; }
+
+        /* ── Пустое состояние ── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.45;
+        }
+        .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+        .empty-state.hidden { display: none; }
+
+        /* ── Модальное окно ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.2s ease;
+        }
+        .overlay.hidden { display: none; }
+
+        .form-card {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .form-card h2 { margin-bottom: 20px; text-align: center; }
+
+        .form-card input {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .form-card input::placeholder { color: rgba(255,255,255,0.35); }
+        .form-card input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        .form-buttons { display: flex; gap: 10px; margin-top: 8px; }
+        .form-buttons button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .save-btn   { background: #0abde3; color: #fff; }
+        .save-btn:hover { background: #0984e3; }
+        .cancel-btn { background: rgba(255,255,255,0.1); color: #fff; }
+        .cancel-btn:hover { background: rgba(255,255,255,0.2); }
+
+        @media (max-width: 400px) {
+            .habits-grid { grid-template-columns: 1fr; }
+            .time-cell .num { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <h1>Мои привычки 💪</h1>
+
+    <div id="habitsList" class="habits-grid"></div>
+
+    <div id="emptyState" class="empty-state hidden">
+        <div class="emoji">🌱</div>
+        <p>Пока нет привычек. Добавьте первую!</p>
+    </div>
+
+    <button id="addBtn" class="add-btn">+ Добавить привычку</button>
+</div>
+
+<!-- Модальное окно -->
+<div id="overlay" class="overlay hidden">
+    <div class="form-card">
+        <h2>Новая привычка</h2>
+        <input type="text" id="habitName" placeholder="Название (например: Медитация)" maxlength="30">
+        <input type="date" id="startDate">
+        <div class="form-buttons">
+            <button class="save-btn" id="saveBtn">Сохранить</button>
+            <button class="cancel-btn" id="cancelBtn">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ── 10 цветов-градиентов ── */
+    const COLORS = [
+        'linear-gradient(135deg, #ff6b6b, #ee5a24)',   // 1 красный
+        'linear-gradient(135deg, #feca57, #ff9f43)',   // 2 жёлтый
+        'linear-gradient(135deg, #48dbfb, #0abde3)',   // 3 голубой
+        'linear-gradient(135deg, #ff9ff3, #f368e0)',   // 4 розовый
+        'linear-gradient(135deg, #54a0ff, #2e86de)',   // 5 синий
+        'linear-gradient(135deg, #a29bfe, #6c5ce7)',   // 6 лавандовый
+        'linear-gradient(135deg, #00cec9, #00b894)',   // 7 бирюзовый
+        'linear-gradient(135deg, #fd79a8, #e84393)',   // 8 фуксия
+        'linear-gradient(135deg, #55efc4, #00b894)',   // 9 мятный
+        'linear-gradient(135deg, #74b9ff, #5352ed)',   // 10 индиго
+    ];
+
+    const MAX = 10;
+
+    /* ── Данные ── */
+    let habits = JSON.parse(localStorage.getItem('habits_v2')) || [];
+    let timer  = null;
+
+    /* ── DOM ── */
+    const $list      = document.getElementById('habitsList');
+    const $empty     = document.getElementById('emptyState');
+    const $addBtn    = document.getElementById('addBtn');
+    const $overlay   = document.getElementById('overlay');
+    const $name      = document.getElementById('habitName');
+    const $date      = document.getElementById('startDate');
+    const $save      = document.getElementById('saveBtn');
+    const $cancel    = document.getElementById('cancelBtn');
+
+    $date.valueAsDate = new Date();          // сегодня по умолчанию
+
+    /* ── Утилиты ── */
+    function save() { localStorage.setItem('habits_v2', JSON.stringify(habits)); }
+
+    function esc(s) {                        // защита от XSS
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function plural(n, one, few, many) {     // склонение
+        const m10 = n % 10, m100 = n % 100;
+        if (m100 >= 11 && m100 <= 19) return many;
+        if (m10 === 1) return one;
+        if (m10 >= 2 && m10 <= 4) return few;
+        return many;
+    }
+
+    function freeColorIndex() {              // первый незанятый цвет
+        const used = new Set(habits.map(h => h.ci));
+        for (let i = 0; i < COLORS.length; i++) if (!used.has(i)) return i;
+        return habits.length % COLORS.length;
+    }
+
+    function fmtDate(iso) {                  // "2025-01-15" → "15.01.2025"
+        const [y, m, d] = iso.split('-');
+        return `${d}.${m}.${y}`;
+    }
+
+    /* ── Рендер ── */
+    function render() {
+        $list.innerHTML = '';
+        $empty.classList.toggle('hidden', habits.length > 0);
+        $addBtn.classList.toggle('hidden', habits.length >= MAX);
+
+        habits.forEach(h => {
+            const card = document.createElement('div');
+            card.className = 'habit-card';
+            card.id = 'c-' + h.id;
+            card.style.background = COLORS[h.ci];
+
+            card.innerHTML = `
+                <button class="delete-btn" data-id="${h.id}" title="Удалить">✕</button>
+                <div class="name">${esc(h.name)}</div>
+                <div class="start-date">с ${fmtDate(h.date)}</div>
+                <div class="time-row">
+                    <div class="time-cell"><span class="num d-n">0</span><span class="lbl d-l">дней</span></div>
+                    <div class="time-cell"><span class="num h-n">0</span><span class="lbl h-l">часов</span></div>
+                    <div class="time-cell"><span class="num m-n">0</span><span class="lbl m-l">минут</span></div>
+                    <div class="time-cell"><span class="num s-n">0</span><span class="lbl s-l">секунд</span></div>
+                </div>`;
+
+            $list.appendChild(card);
+        });
+
+        // кнопки удаления
+        $list.querySelectorAll('.delete-btn').forEach(btn =>
+            btn.addEventListener('click', e => {
+                if (!confirm('Удалить привычку?')) return;
+                habits = habits.filter(h => h.id !== e.target.dataset.id);
+                save(); render(); tick();
+            })
+        );
+
+        tick();
+        startTimer();
+    }
+
+    /* ── Тик таймера ── */
+    function tick() {
+        habits.forEach(h => {
+            const card = document.getElementById('c-' + h.id);
+            if (!card) return;
+
+            const [y, m, d] = h.date.split('-');
+            const diff = Math.max(0, Date.now() - new Date(y, m - 1, d).getTime());
+
+            const dd = Math.floor(diff / 86400000);
+            const hh = Math.floor((diff % 86400000) / 3600000);
+            const mm = Math.floor((diff % 3600000) / 60000);
+            const ss = Math.floor((diff % 60000) / 1000);
+
+            card.querySelector('.d-n').textContent = dd;
+            card.querySelector('.h-n').textContent = hh;
+            card.querySelector('.m-n').textContent = mm;
+            card.querySelector('.s-n').textContent = ss;
+
+            card.querySelector('.d-l').textContent = plural(dd, 'день','дня','дней');
+            card.querySelector('.h-l').textContent = plural(hh, 'час','часа','часов');
+            card.querySelector('.m-l').textContent = plural(mm, 'минута','минуты','минут');
+            card.querySelector('.s-l').textContent = plural(ss, 'секунда','секунды','секунд');
+        });
+    }
+
+    function startTimer() {
+        clearInterval(timer);
+        if (habits.length) timer = setInterval(tick, 1000);
+    }
+
+    /* ── Модалка ── */
+    function openModal() {
+        $name.value = '';
+        $date.valueAsDate = new Date();
+        $overlay.classList.remove('hidden');
+        $name.focus();
+    }
+    function closeModal() { $overlay.classList.add('hidden'); }
+
+    $addBtn.addEventListener('click', openModal);
+    $cancel.addEventListener('click', closeModal);
+    $overlay.addEventListener('click', e => { if (e.target === $overlay) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    $save.addEventListener('click', () => {
+        const name = $name.value.trim();
+        const date = $date.value;
+        if (!name) { alert('Введите название'); return; }
+        if (!date) { alert('Выберите дату'); return; }
+
+        habits.push({ id: Date.now().toString(), name, date, ci: freeColorIndex() });
+        save(); render(); closeModal();
+    });
+
+    $name.addEventListener('keydown', e => { if (e.key === 'Enter') $save.click(); });
+
+    /* ── Старт ── */
+    render();
+</script>
+</body>
+</html>
